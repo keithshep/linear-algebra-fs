@@ -50,6 +50,15 @@ let vecPNorm p vec =
 // Calculate the norm of the given vector. TODO check for complex numbers
 let vecNorm vec = vecPNorm 2.0 vec
 
+// As P approaches infinity the vector p-norm becomes the max absolute value in
+// the vector
+let vecInfNorm vec =
+    let infNorm = ref 0.0
+    for v in vec do
+        let absV = abs v
+        if absV > !infNorm then infNorm := absV
+    !infNorm
+
 // Normalize `vector`. Geometricly this means have it point in the same
 // direction, but scale its magnitude to 1
 let normalizeVector vec =
@@ -265,3 +274,4 @@ let main =
     printfn "%A" (identityMatrix 10)
     printfn "Least Squares:"
     printfn "%A" (solveLeastSquares x y)
+
