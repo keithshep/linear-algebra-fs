@@ -232,6 +232,80 @@ let backSubstituteLower (lowerTriangleMat : double [,]) (rhsVec : double []) =
         solution.[i] <- (rhsVec.[i] - !sum) / lowerTriangleMat.[i, i]
     solution
 
+// determine if the given matrix is square
+let isSquare m = Array2D.length1 m = Array2D.length2 m
+
+// use guassian elimination to zero out the coefficients under the diagonal
+// Returns the resulting coefficient matrix and right-hand-side values
+let gaussianElimination coefMat rhsVec =
+    let coefMat = Array2D.copy coefMat
+    let rhsVec = Array.copy rhsVec
+    let size = Array2D.length1 coefMat
+
+    // do some sanity checking
+    if size = 0 then failwith "coefMat cannot be empty"
+    if not (isSquare coefMat) then
+        invalidArg "coefMat" "the coefficient matrix must be a square matrix"
+    if Array.length rhsVec <> size then
+        let errorMsg =
+            sprintf
+                "There are %i rows in coefMat and %i elements in rhsVec. These \
+                 values should be the same."
+                size
+                (Array.length rhsVec)
+        failwith errorMsg
+
+    // internal helper functions
+    let rec firstNonZeroRowUnder row col =
+        if row = size then None
+        // TODO: should add some floating point tolerance here
+        else if coefMat.[row, col] <> 0.0 then Some row
+        else firstNonZeroRowUnder (row + 1) col
+    
+    let zeroOutCoefficientsUnder diagIndex =
+        let diagCoef = coefMat.[diagIndex, diagIndex]
+        for row = diagIndex + 1 to size - 1 do
+            // TODO again, fp tolerance
+            let currCoef = coefMat.[row, diagIndex]
+            if currCoef <> 0.0 then
+                let zeroFactor = currCoef / diagCoef
+                // TODO: is it better to "force" the value to zero or allow the
+                //       residual fp error to remain?
+                for col = diagIndex to size - 1 do
+                    coefMat.[row, col] <- coefMat.[row, col] - (zeroFactor * coefMat.[diagIndex, col])
+                rhsVec.[row] <- rhsVec.[row] - (zeroFactor * rhsVec.[diagIndex])
+
+    let swapEquations row1 row2 =
+        for col = 0 to size - 1 do
+            let temp = coefMat.[row1, col]
+            coefMat.[row1, col] <- coefMat.[row2, col]
+            coefMat.[row2, col] <- temp
+        
+        let temp = rhsVec.[row1]
+        rhsVec.[row1] <- rhsVec.[row2]
+        rhsVec.[row2] <- temp
+
+    // now "zero out" the coefficients below the diagonal
+    for i = 0 to size - 2 do
+        match firstNonZeroRowUnder i i with
+        | None ->
+            // TODO: maybe a real exception is called for here?
+            let errorMsg =
+                sprintf
+                    "could not find a non-zero coefficient under the diagonal \
+                     at position %i"
+                    i
+            failwith errorMsg
+        | Some nonZeroRow ->
+            if nonZeroRow <> i then swapEquations i nonZeroRow
+            zeroOutCoefficientsUnder i
+    
+    (coefMat, rhsVec)
+
+let solveWithGaussAndBackSub coefMat rhsVec =
+    let (gaussElimCoefMat, gaussElimRHSVec) = gaussianElimination coefMat rhsVec
+    backSubstituteUpper gaussElimCoefMat gaussElimRHSVec
+
 // See page 314 of "Matrix Analysis and Applied Linear Algebra"
 let solveLeastSquares a b =
     let (q, r) = qrFactorizeWithGramSchmidt a
@@ -240,6 +314,8 @@ let solveLeastSquares a b =
     // column matrices/vectors
     let rightSide = matColumn (matMult (transpose q) (columnVector b)) 0
     backSubstituteUpper r rightSide
+
+// EVERYTHING BELOW THIS LINE IS JUST FOR QUICK AND DIRTY TESTING
 
 let testMat1 =
     Array2D.map double
@@ -265,6 +341,22 @@ let x =
 
 let y = Array.map double [|6; 5; 7; 10|]
 
+let lCoefMatrix =
+    array2D
+        [|[|2.0;  1.0; 1.0|];
+          [|4.0;  3.0; 1.0|];
+          [|-2.0; 2.0; 1.0|]|]
+
+let lRHSVector = [|1.0; -1.0; 7.0|]
+
+let mCoefMatrix =
+    array2D
+        [|[|2.0;  1.0; 1.0|];
+          [|6.0;  3.0; 1.0|];
+          [|-2.0; 2.0; 1.0|]|]
+
+let mRHSVector = [|1.0; -1.0; 7.0|]
+
 let main =
     printfn "Matrix Addition:"
     printfn "%A" (matAdd (array2D [[|1.0; 2.0; 3.0|]]) (array2D [[|0.1; 0.2; 0.3|]]))
@@ -274,4 +366,8 @@ let main =
     printfn "%A" (identityMatrix 10)
     printfn "Least Squares:"
     printfn "%A" (solveLeastSquares x y)
+    printfn "Gaussian/Back-substitution solution for L"
+    printfn "%A" (solveWithGaussAndBackSub lCoefMatrix lRHSVector)
+    printfn "Gaussian/Back-substitution solution for M"
+    printfn "%A" (solveWithGaussAndBackSub mCoefMatrix mRHSVector)
 
