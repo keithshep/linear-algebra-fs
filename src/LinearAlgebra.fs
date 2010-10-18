@@ -302,6 +302,8 @@ let gaussianElimination coefMat rhsVec =
     
     (coefMat, rhsVec)
 
+// Solve the linear equations using gaussian elimination and back
+// substitution
 let solveWithGaussAndBackSub coefMat rhsVec =
     let (gaussElimCoefMat, gaussElimRHSVec) = gaussianElimination coefMat rhsVec
     backSubstituteUpper gaussElimCoefMat gaussElimRHSVec
@@ -320,46 +322,46 @@ let solveLeastSquares a b =
 let testMat1 =
     Array2D.map double
         (array2D
-            [|[|2; 0; -1; 1|];
-              [|1; 2; 0; 1|]|])
+            [[2; 0; -1; 1];
+             [1; 2; 0; 1]])
 
 let testMat2 =
     Array2D.map double
         (array2D
-            [|[|1; 5; -7|];
-              [|1; 1; 0|];
-              [|0; -1; 1|];
-              [|2; 0; 0|]|])
+            [[1; 5; -7];
+             [1; 1; 0];
+             [0; -1; 1];
+             [2; 0; 0]])
 
 let x =
     Array2D.map double
         (array2D
-            [|[|1; 1|];
-              [|1; 2|];
-              [|1; 3|];
-              [|1; 4|]|])
+            [[1; 1];
+             [1; 2];
+             [1; 3];
+             [1; 4]])
 
 let y = Array.map double [|6; 5; 7; 10|]
 
 let lCoefMatrix =
     array2D
-        [|[|2.0;  1.0; 1.0|];
-          [|4.0;  3.0; 1.0|];
-          [|-2.0; 2.0; 1.0|]|]
+        [[2.0;  1.0; 1.0];
+         [4.0;  3.0; 1.0];
+         [-2.0; 2.0; 1.0]]
 
 let lRHSVector = [|1.0; -1.0; 7.0|]
 
 let mCoefMatrix =
     array2D
-        [|[|2.0;  1.0; 1.0|];
-          [|6.0;  3.0; 1.0|];
-          [|-2.0; 2.0; 1.0|]|]
+        [[2.0;  1.0; 1.0];
+         [6.0;  3.0; 1.0];
+         [-2.0; 2.0; 1.0]]
 
 let mRHSVector = [|1.0; -1.0; 7.0|]
 
 let main =
     printfn "Matrix Addition:"
-    printfn "%A" (matAdd (array2D [[|1.0; 2.0; 3.0|]]) (array2D [[|0.1; 0.2; 0.3|]]))
+    printfn "%A" (matAdd (array2D [[1.0; 2.0; 3.0]]) (array2D [[0.1; 0.2; 0.3]]))
     printfn "Matrix Multiplication:"
     printfn "%A" (matMult testMat1 testMat2)
     printfn "Identity Mat 10:"
