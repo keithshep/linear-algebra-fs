@@ -292,8 +292,8 @@ let gaussianElimination coefMat rhsVec =
             // TODO: maybe a real exception is called for here?
             let errorMsg =
                 sprintf
-                    "could not find a non-zero coefficient under the diagonal \
-                     at position %i"
+                    "the matrix is singular: could not find a non-zero \
+                     coefficient under the diagonal at position %i"
                     i
             failwith errorMsg
         | Some nonZeroRow ->
