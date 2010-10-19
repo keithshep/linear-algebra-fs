@@ -1,3 +1,6 @@
+// determines if the given number is near 0
+isNearZero x = x < 1e-8 && x > -(1e-8)
+
 // applies f to each corresponding pair of elements in m1 and m2
 let matZipWith (f : 'a -> 'b -> 'c) (m1 : 'a[,]) (m2 : 'b[,]) =
     let rowCount = Array2D.length1 m1
@@ -120,7 +123,7 @@ let vecCosine v1 v2 = dotProd v1 v2 / (vecNorm v1 * vecNorm v2)
 let coefOfCorr = vecCosine
 
 // two vectors are orthogonal if thier dot product is zero
-let orthogonal v1 v2 = dotProd v1 v2 = 0.0
+let orthogonal v1 v2 = isNearZero (dotProd v1 v2)
 
 // extract the given row number from the given matrix
 let matRow m row = Array.init (Array2D.length2 m) (fun col -> m.[row, col])
@@ -258,16 +261,14 @@ let gaussianElimination coefMat rhsVec =
     // internal helper functions
     let rec firstNonZeroRowUnder row col =
         if row = size then None
-        // TODO: should add some floating point tolerance here
-        else if coefMat.[row, col] <> 0.0 then Some row
+        else if not (isNearZero coefMat.[row, col]) then Some row
         else firstNonZeroRowUnder (row + 1) col
     
     let zeroOutCoefficientsUnder diagIndex =
         let diagCoef = coefMat.[diagIndex, diagIndex]
         for row = diagIndex + 1 to size - 1 do
-            // TODO again, fp tolerance
             let currCoef = coefMat.[row, diagIndex]
-            if currCoef <> 0.0 then
+            if not (isNearZero currCoef) then
                 let zeroFactor = currCoef / diagCoef
                 // TODO: is it better to "force" the value to zero or allow the
                 //       residual fp error to remain?
