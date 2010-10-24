@@ -1,5 +1,6 @@
 // determines if the given number is near 0
-isNearZero x = x < 1e-8 && x > -(1e-8)
+let nearZero = 1e-8
+let isNearZero x = x < nearZero && x > -(nearZero)
 
 // applies f to each corresponding pair of elements in m1 and m2
 let matZipWith (f : 'a -> 'b -> 'c) (m1 : 'a[,]) (m2 : 'b[,]) =
@@ -258,11 +259,16 @@ let gaussianElimination coefMat rhsVec =
                 (Array.length rhsVec)
         failwith errorMsg
 
-    // internal helper functions
-    let rec firstNonZeroRowUnder row col =
-        if row = size then None
-        else if not (isNearZero coefMat.[row, col]) then Some row
-        else firstNonZeroRowUnder (row + 1) col
+    // some internal helper functions
+    let maxNonZeroRowUnder diagIndex =
+        let maxIndex = ref None
+        let absMax = ref nearZero
+        for row = diagIndex to size - 1 do
+            let currAbsVal = abs coefMat.[row, diagIndex]
+            if currAbsVal > !absMax then
+                absMax := currAbsVal
+                maxIndex := Some row
+        !maxIndex
     
     let zeroOutCoefficientsUnder diagIndex =
         let diagCoef = coefMat.[diagIndex, diagIndex]
@@ -270,8 +276,6 @@ let gaussianElimination coefMat rhsVec =
             let currCoef = coefMat.[row, diagIndex]
             if not (isNearZero currCoef) then
                 let zeroFactor = currCoef / diagCoef
-                // TODO: is it better to "force" the value to zero or allow the
-                //       residual fp error to remain?
                 for col = diagIndex to size - 1 do
                     coefMat.[row, col] <- coefMat.[row, col] - (zeroFactor * coefMat.[diagIndex, col])
                 rhsVec.[row] <- rhsVec.[row] - (zeroFactor * rhsVec.[diagIndex])
@@ -281,14 +285,13 @@ let gaussianElimination coefMat rhsVec =
             let temp = coefMat.[row1, col]
             coefMat.[row1, col] <- coefMat.[row2, col]
             coefMat.[row2, col] <- temp
-        
         let temp = rhsVec.[row1]
         rhsVec.[row1] <- rhsVec.[row2]
         rhsVec.[row2] <- temp
 
     // now "zero out" the coefficients below the diagonal
     for i = 0 to size - 2 do
-        match firstNonZeroRowUnder i i with
+        match maxNonZeroRowUnder i with
         | None ->
             // TODO: maybe a real exception is called for here?
             let errorMsg =
