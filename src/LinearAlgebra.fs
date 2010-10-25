@@ -2,6 +2,18 @@
 let nearZero = 1e-8
 let isNearZero x = x < nearZero && x > -(nearZero)
 
+let reorderedArray (array : 'a array) (order : int array) =
+    let len = Array.length array
+    assert (Array.length order = len)
+    Array.init len (fun i -> array.[order.[i]])
+
+let rowReorderedMatrix matrix rowOrder =
+    let rowCount = Array2D.length1 matrix
+    let colCount = Array2D.length2 matrix
+    assert (Array.length rowOrder = rowCount)
+    
+    Array2D.init rowCount colCount (fun row col -> matrix.[rowOrder.[row], col])
+
 // applies f to each corresponding pair of elements in m1 and m2
 let matZipWith (f : 'a -> 'b -> 'c) (m1 : 'a[,]) (m2 : 'b[,]) =
     let rowCount = Array2D.length1 m1
@@ -240,8 +252,9 @@ let backSubstituteLower (lowerTriangleMat : double [,]) (rhsVec : double []) =
 let isSquare m = Array2D.length1 m = Array2D.length2 m
 
 // use guassian elimination to zero out the coefficients under the diagonal
-// Returns the resulting coefficient matrix and right-hand-side values
-let gaussianElimination coefMat rhsVec =
+// Returns the resulting coefficient matrix and right-hand-side values and
+// orderings
+let private gaussianEliminationInternal coefMat rhsVec =
     let coefMat = Array2D.copy coefMat
     let rhsVec = Array.copy rhsVec
     let size = Array2D.length1 coefMat
@@ -259,52 +272,50 @@ let gaussianElimination coefMat rhsVec =
                 (Array.length rhsVec)
         failwith errorMsg
 
-    // some internal helper functions
-    let maxNonZeroRowUnder diagIndex =
-        let maxIndex = ref None
-        let absMax = ref nearZero
-        for row = diagIndex to size - 1 do
-            let currAbsVal = abs coefMat.[row, diagIndex]
-            if currAbsVal > !absMax then
-                absMax := currAbsVal
-                maxIndex := Some row
-        !maxIndex
-    
-    let zeroOutCoefficientsUnder diagIndex =
-        let diagCoef = coefMat.[diagIndex, diagIndex]
-        for row = diagIndex + 1 to size - 1 do
-            let currCoef = coefMat.[row, diagIndex]
-            if not (isNearZero currCoef) then
-                let zeroFactor = currCoef / diagCoef
-                for col = diagIndex to size - 1 do
-                    coefMat.[row, col] <- coefMat.[row, col] - (zeroFactor * coefMat.[diagIndex, col])
-                rhsVec.[row] <- rhsVec.[row] - (zeroFactor * rhsVec.[diagIndex])
-
-    let swapEquations row1 row2 =
-        for col = 0 to size - 1 do
-            let temp = coefMat.[row1, col]
-            coefMat.[row1, col] <- coefMat.[row2, col]
-            coefMat.[row2, col] <- temp
-        let temp = rhsVec.[row1]
-        rhsVec.[row1] <- rhsVec.[row2]
-        rhsVec.[row2] <- temp
-
-    // now "zero out" the coefficients below the diagonal
-    for i = 0 to size - 2 do
-        match maxNonZeroRowUnder i with
-        | None ->
-            // TODO: maybe a real exception is called for here?
+    let rowOrdering = [|0 .. size - 1|]
+    for diagIndex = 0 to size - 2 do
+        // perform "partial pivoting" which bubbles the max absolute coefficient
+        // to the top (improves algorithm's accuracy)
+        let maxIndex = ref diagIndex
+        let maxAbsCoef = ref (abs coefMat.[rowOrdering.[diagIndex], diagIndex])
+        for j = diagIndex + 1 to size - 1 do
+            let currAbsVal = abs coefMat.[rowOrdering.[j], diagIndex]
+            if currAbsVal > !maxAbsCoef then
+                maxAbsCoef := currAbsVal
+                maxIndex := j
+        if isNearZero !maxAbsCoef then
             let errorMsg =
                 sprintf
                     "the matrix is singular: could not find a non-zero \
                      coefficient under the diagonal at position %i"
-                    i
+                    rowOrdering.[diagIndex]
             failwith errorMsg
-        | Some nonZeroRow ->
-            if nonZeroRow <> i then swapEquations i nonZeroRow
-            zeroOutCoefficientsUnder i
+
+        // now swap the max row with the current
+        if !maxIndex <> diagIndex then
+            let tmp = rowOrdering.[diagIndex]
+            rowOrdering.[diagIndex] <- rowOrdering.[!maxIndex]
+            rowOrdering.[!maxIndex] <- tmp
+
+        // now "zero out" the coefficients below the diagonal
+        let diagCoef = coefMat.[rowOrdering.[diagIndex], diagIndex]
+        for row = diagIndex + 1 to size - 1 do
+            let orderedRow = rowOrdering.[row]
+            let currCoef = coefMat.[orderedRow, diagIndex]
+            if not (isNearZero currCoef) then
+                let zeroFactor = currCoef / diagCoef
+                for col = diagIndex to size - 1 do
+                    coefMat.[orderedRow, col] <-
+                        coefMat.[orderedRow, col] -
+                        (zeroFactor * coefMat.[rowOrdering.[diagIndex], col])
+                rhsVec.[orderedRow] <-
+                    rhsVec.[orderedRow] - (zeroFactor * rhsVec.[rowOrdering.[diagIndex]])
     
-    (coefMat, rhsVec)
+    (coefMat, rhsVec, rowOrdering)
+
+let gaussianElimination coefMat rhsVec =
+    let (gaussElimCoefMat, gaussElimRHSVec, rowOrdering) = gaussianEliminationInternal coefMat rhsVec
+    (rowReorderedMatrix gaussElimCoefMat rowOrdering, reorderedArray gaussElimRHSVec rowOrdering)
 
 // Solve the linear equations using gaussian elimination and back
 // substitution
