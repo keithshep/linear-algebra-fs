@@ -2,12 +2,12 @@
 let nearZero = 1e-8
 let isNearZero x = x < nearZero && x > -(nearZero)
 
-let reorderedArray (array : 'a array) (order : int array) =
+let reorderArray (array : 'a array) (order : int array) =
     let len = Array.length array
     assert (Array.length order = len)
     Array.init len (fun i -> array.[order.[i]])
 
-let rowReorderedMatrix matrix rowOrder =
+let reorderMatrixRows matrix rowOrder =
     let rowCount = Array2D.length1 matrix
     let colCount = Array2D.length2 matrix
     assert (Array.length rowOrder = rowCount)
@@ -253,7 +253,9 @@ let isSquare m = Array2D.length1 m = Array2D.length2 m
 
 // use guassian elimination to zero out the coefficients under the diagonal
 // Returns the resulting coefficient matrix and right-hand-side values and
-// orderings
+// orderings. Rather than leaving zeroes in the bottom diagonal of the
+// coefficient we fill it in with the multipliers that were used to zero out the
+// lower diagonal
 let private gaussianEliminationInternal coefMat rhsVec =
     let coefMat = Array2D.copy coefMat
     let rhsVec = Array.copy rhsVec
@@ -302,20 +304,21 @@ let private gaussianEliminationInternal coefMat rhsVec =
         for row = diagIndex + 1 to size - 1 do
             let orderedRow = rowOrdering.[row]
             let currCoef = coefMat.[orderedRow, diagIndex]
-            if not (isNearZero currCoef) then
-                let zeroFactor = currCoef / diagCoef
-                for col = diagIndex to size - 1 do
+            let zeroFactor = currCoef / diagCoef
+            if not (isNearZero zeroFactor) then
+                for col = diagIndex + 1 to size - 1 do
                     coefMat.[orderedRow, col] <-
                         coefMat.[orderedRow, col] -
                         (zeroFactor * coefMat.[rowOrdering.[diagIndex], col])
                 rhsVec.[orderedRow] <-
                     rhsVec.[orderedRow] - (zeroFactor * rhsVec.[rowOrdering.[diagIndex]])
+            coefMat.[orderedRow, diagIndex] <- zeroFactor
     
     (coefMat, rhsVec, rowOrdering)
 
 let gaussianElimination coefMat rhsVec =
     let (gaussElimCoefMat, gaussElimRHSVec, rowOrdering) = gaussianEliminationInternal coefMat rhsVec
-    (rowReorderedMatrix gaussElimCoefMat rowOrdering, reorderedArray gaussElimRHSVec rowOrdering)
+    (reorderMatrixRows gaussElimCoefMat rowOrdering, reorderArray gaussElimRHSVec rowOrdering)
 
 // Solve the linear equations using gaussian elimination and back
 // substitution
