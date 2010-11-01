@@ -1,3 +1,5 @@
+module LinearAlgebra
+
 // determines if the given number is near 0
 let nearZero = 1e-8
 let isNearZero x = x < nearZero && x > -(nearZero)
@@ -23,7 +25,7 @@ let matZipWith (f : 'a -> 'b -> 'c) (m1 : 'a[,]) (m2 : 'b[,]) =
     Array2D.init rowCount colCount (fun i j -> f m1.[i, j] m2.[i, j])
 
 // adds two matrices
-let matAdd = matZipWith (+)
+let inline matAdd m1 m2 = matZipWith (+) m1 m2
 
 // Multiplies the two given matrices
 // The wikipedia page on matrix multiplication is great: http://en.wikipedia.org/wiki/Matrix_multiplication
@@ -334,60 +336,4 @@ let solveLeastSquares a b =
     // column matrices/vectors
     let rightSide = matColumn (matMult (transpose q) (columnVector b)) 0
     backSubstituteUpper r rightSide
-
-// EVERYTHING BELOW THIS LINE IS JUST FOR QUICK AND DIRTY TESTING
-
-let testMat1 =
-    Array2D.map double
-        (array2D
-            [[2; 0; -1; 1];
-             [1; 2; 0; 1]])
-
-let testMat2 =
-    Array2D.map double
-        (array2D
-            [[1; 5; -7];
-             [1; 1; 0];
-             [0; -1; 1];
-             [2; 0; 0]])
-
-let x =
-    Array2D.map double
-        (array2D
-            [[1; 1];
-             [1; 2];
-             [1; 3];
-             [1; 4]])
-
-let y = Array.map double [|6; 5; 7; 10|]
-
-let lCoefMatrix =
-    array2D
-        [[2.0;  1.0; 1.0];
-         [4.0;  3.0; 1.0];
-         [-2.0; 2.0; 1.0]]
-
-let lRHSVector = [|1.0; -1.0; 7.0|]
-
-let mCoefMatrix =
-    array2D
-        [[2.0;  1.0; 1.0];
-         [6.0;  3.0; 1.0];
-         [-2.0; 2.0; 1.0]]
-
-let mRHSVector = [|1.0; -1.0; 7.0|]
-
-let main =
-    printfn "Matrix Addition:"
-    printfn "%A" (matAdd (array2D [[1.0; 2.0; 3.0]]) (array2D [[0.1; 0.2; 0.3]]))
-    printfn "Matrix Multiplication:"
-    printfn "%A" (matMult testMat1 testMat2)
-    printfn "Identity Mat 10:"
-    printfn "%A" (identityMatrix 10)
-    printfn "Least Squares:"
-    printfn "%A" (solveLeastSquares x y)
-    printfn "Gaussian/Back-substitution solution for L"
-    printfn "%A" (solveWithGaussAndBackSub lCoefMatrix lRHSVector)
-    printfn "Gaussian/Back-substitution solution for M"
-    printfn "%A" (solveWithGaussAndBackSub mCoefMatrix mRHSVector)
 
