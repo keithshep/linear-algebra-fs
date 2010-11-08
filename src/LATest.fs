@@ -42,7 +42,8 @@ let mCoefMatrix =
 
 let mRHSVector = [|1.0; -1.0; 7.0|]
 
-let main =
+[<EntryPoint>]
+let main _ =
     printfn "Matrix Addition:"
     printfn "%A" (LA.matAdd (array2D [[1.0; 2.0; 3.0]]) (array2D [[0.1; 0.2; 0.3]]))
     printfn "Matrix Multiplication:"
@@ -55,4 +56,7 @@ let main =
     printfn "%A" (LA.solveWithGaussAndBackSub lCoefMatrix lRHSVector)
     printfn "Gaussian/Back-substitution solution for M"
     printfn "%A" (LA.solveWithGaussAndBackSub mCoefMatrix mRHSVector)
+
+    // exit success
+    0
 
