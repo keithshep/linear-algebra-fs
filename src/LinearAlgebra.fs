@@ -253,12 +253,18 @@ let backSubstituteLower (lowerTriangleMat : double [,]) (rhsVec : double []) =
 // determine if the given matrix is square
 let isSquare m = Array2D.length1 m = Array2D.length2 m
 
-// use guassian elimination to zero out the coefficients under the diagonal
-// Returns the resulting coefficient matrix and right-hand-side values and
-// orderings. Rather than leaving zeroes in the bottom diagonal of the
-// coefficient we fill it in with the multipliers that were used to zero out the
-// lower diagonal
-let private gaussianEliminationInternal coefMat rhsVec =
+/// <summary>
+/// use guassian elimination to calculate LU decomposition for the given matrix
+/// equation. This algorithm uses pivoting to improve accuracy so the new index
+/// ordering is also returned.
+/// </summary>
+/// <param name="coefMat">the coefficient matrix</param>
+/// <param name="rhsVec">the right hand side vector</param>
+/// <returns>
+/// A tuple containing:
+/// (LU matrix, the new right-hand-side, the index reordering that was done)
+/// </returns>
+let gaussianElimination coefMat rhsVec =
     let coefMat = Array2D.copy coefMat
     let rhsVec = Array.copy rhsVec
     let size = Array2D.length1 coefMat
@@ -316,17 +322,32 @@ let private gaussianEliminationInternal coefMat rhsVec =
                     rhsVec.[orderedRow] - (zeroFactor * rhsVec.[rowOrdering.[diagIndex]])
             coefMat.[orderedRow, diagIndex] <- zeroFactor
     
-    (coefMat, rhsVec, rowOrdering)
-
-let gaussianElimination coefMat rhsVec =
-    let (gaussElimCoefMat, gaussElimRHSVec, rowOrdering) = gaussianEliminationInternal coefMat rhsVec
-    (reorderMatrixRows gaussElimCoefMat rowOrdering, reorderArray gaussElimRHSVec rowOrdering)
+    (reorderMatrixRows coefMat rowOrdering, reorderArray rhsVec rowOrdering, rowOrdering)
 
 // Solve the linear equations using gaussian elimination and back
 // substitution
 let solveWithGaussAndBackSub coefMat rhsVec =
-    let (gaussElimCoefMat, gaussElimRHSVec) = gaussianElimination coefMat rhsVec
-    backSubstituteUpper gaussElimCoefMat gaussElimRHSVec
+    let (luMatrix, gaussElimRHSVec, _) = gaussianElimination coefMat rhsVec
+    backSubstituteUpper luMatrix gaussElimRHSVec
+
+let resolveMatrix (luMatrix : double [,]) (rhsVec : double []) =
+    let size = Array.length rhsVec
+    for col = 0 to size - 2 do
+        for row = col + 1 to size - 1 do
+            rhsVec.[row] <- rhsVec.[row] - (rhsVec.[col] * luMatrix.[row, col])
+    backSubstituteUpper luMatrix rhsVec
+
+let solveManyWithGaussAndBackSub coefMat rhsVecs =
+    match rhsVecs with
+    | [] -> []
+    | (rhsVecHead :: rhsVecTail) ->
+        // we must 1st use gaussian elimination to solve the initial right hand side
+        let (luMat, newRhsVec, rowOrdering) = gaussianElimination coefMat rhsVecHead
+
+        // now we can use a shortcut so solve the rest of the RHS's
+        let solveSubsequentRhs rhsVec = resolveMatrix luMat (reorderArray rhsVec rowOrdering)
+
+        backSubstituteUpper luMat newRhsVec :: List.map solveSubsequentRhs rhsVecTail
 
 // See page 314 of "Matrix Analysis and Applied Linear Algebra"
 let solveLeastSquares a b =

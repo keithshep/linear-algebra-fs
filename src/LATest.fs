@@ -42,6 +42,8 @@ let mCoefMatrix =
 
 let mRHSVector = [|1.0; -1.0; 7.0|]
 
+let nRHSVector = [|33.3; 2.0; 1.11|]
+
 [<EntryPoint>]
 let main _ =
     printfn "Matrix Addition:"
@@ -52,10 +54,14 @@ let main _ =
     printfn "%A" (LA.identityMatrix 10)
     printfn "Least Squares:"
     printfn "%A" (LA.solveLeastSquares x y)
-    printfn "Gaussian/Back-substitution solution for L"
+    printfn "Gaussian/Back-substitution solution for Lx=l"
     printfn "%A" (LA.solveWithGaussAndBackSub lCoefMatrix lRHSVector)
-    printfn "Gaussian/Back-substitution solution for M"
+    printfn "Gaussian/Back-substitution solution for Mx=m"
     printfn "%A" (LA.solveWithGaussAndBackSub mCoefMatrix mRHSVector)
+    printfn "Gaussian/Back-substitution solution for Mx=m, Mx=n"
+    printfn "%A" (LA.solveManyWithGaussAndBackSub mCoefMatrix [mRHSVector; nRHSVector])
+    printfn "Gaussian/Back-substitution solution for Mx=n"
+    printfn "%A" (LA.solveWithGaussAndBackSub mCoefMatrix nRHSVector)
 
     // exit success
     0
