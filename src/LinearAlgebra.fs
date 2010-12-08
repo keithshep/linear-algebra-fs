@@ -1,31 +1,17 @@
 module LinearAlgebra
 
-// determines if the given number is near 0
-let nearZero = 1e-8
-let isNearZero x = x < nearZero && x > -(nearZero)
+module MC = MathCore
+module U = Utilities
 
-let reorderArray (array : 'a array) (order : int array) =
-    let len = Array.length array
-    assert (Array.length order = len)
-    Array.init len (fun i -> array.[order.[i]])
+////////////////////////////////////////////////////////////////////////////////
+// BASIC LINEAR ALGEBRA FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////
 
-let reorderMatrixRows matrix rowOrder =
-    let rowCount = Array2D.length1 matrix
-    let colCount = Array2D.length2 matrix
-    assert (Array.length rowOrder = rowCount)
-    
-    Array2D.init rowCount colCount (fun row col -> matrix.[rowOrder.[row], col])
-
-// applies f to each corresponding pair of elements in m1 and m2
-let matZipWith (f : 'a -> 'b -> 'c) (m1 : 'a[,]) (m2 : 'b[,]) =
-    let rowCount = Array2D.length1 m1
-    let colCount = Array2D.length2 m1
-    
-    assert (Array2D.length1 m2 = rowCount && Array2D.length2 m2 = colCount)
-    Array2D.init rowCount colCount (fun i j -> f m1.[i, j] m2.[i, j])
+// the identity matrix has 1's along the diagonal and 0's elsewhere
+let inline identityMatrix n = Array2D.init n n (fun i j -> if i = j then 1.0 else 0.0)
 
 // adds two matrices
-let inline matAdd m1 m2 = matZipWith (+) m1 m2
+let inline matAdd m1 m2 = U.matZipWith (+) m1 m2
 
 // Multiplies the two given matrices
 // The wikipedia page on matrix multiplication is great: http://en.wikipedia.org/wiki/Matrix_multiplication
@@ -52,9 +38,6 @@ let matMult m1 m2 =
             !rowColDotProd
         
         Array2D.init (Array2D.length1 m1) (Array2D.length2 m2) dotProdRowCol
-
-// the identity matrix has 1's along the diagonal and 0's elsewhere
-let identityMatrix n = Array2D.init n n (fun i j -> if i = j then 1.0 else 0.0)
 
 // Calculate the norm of the given vector.
 // Math notation for norm is ||X||
@@ -83,21 +66,11 @@ let normalizeVector vec =
     let norm = vecNorm vec
     Array.map (fun x -> x / norm) vec
 
-let mean vec = Array.sum vec / double (Array.length vec)
-
-let variance vec =
-    let mu = mean vec
-    let sumSqDiffs = ref 0.0
-    for x in vec do sumSqDiffs := !sumSqDiffs + (mu - x) ** 2.0
-    !sumSqDiffs
-
-let stdDev vec = sqrt (variance vec)
-
 // standardize the vector by mean centering and dividing by
 // standard deviation
 let standardize vec =
-    let mu = mean vec
-    let vecStdDev = stdDev vec
+    let mu = MC.mean vec
+    let vecStdDev = MC.stdDev vec
     [| for x in vec -> (x - mu) / vecStdDev |]
 
 let dotProd vec1 vec2 =
@@ -113,23 +86,18 @@ let vecCorrelation vec1 vec2 =
     let stdVec2 = standardize vec2
     dotProd stdVec1 stdVec2 / (vecNorm stdVec1 * vecNorm stdVec2)
 
-let isSquareMat m = Array2D.length1 m = Array2D.length2 m
-
 let trace m =
-    assert (isSquareMat m)
+    assert (U.isSquareMat m)
     let diagSum = ref m.[0, 0]
     for i = 1 to Array2D.length1 m - 1 do
         diagSum := !diagSum + m.[i, i]
     !diagSum
 
-let transpose m =
-    Array2D.init (Array2D.length2 m) (Array2D.length1 m) (fun i j -> m.[j, i])
-
 let matInnerProd m1 m2 =
     // TODO: look further into
     //       http://en.wikipedia.org/wiki/Trace_%28linear_algebra%29#Inner_product
     //       for info about the conjugate transpose (in the case of imaginaries)
-    trace (matMult (transpose m1) m2)
+    trace (matMult (U.transpose m1) m2)
 
 // calculate cos theta using the given vectors
 let vecCosine v1 v2 = dotProd v1 v2 / (vecNorm v1 * vecNorm v2)
@@ -138,89 +106,11 @@ let vecCosine v1 v2 = dotProd v1 v2 / (vecNorm v1 * vecNorm v2)
 let coefOfCorr = vecCosine
 
 // two vectors are orthogonal if thier dot product is zero
-let orthogonal v1 v2 = isNearZero (dotProd v1 v2)
+let orthogonal v1 v2 = MC.isNearZero (dotProd v1 v2)
 
-// extract the given row number from the given matrix
-let matRow m row = Array.init (Array2D.length2 m) (fun col -> m.[row, col])
-
-// extract the given column number
-let matColumn (m : 'a [,]) (col : int) = Array.init (Array2D.length1 m) (fun row -> m.[row, col])
-
-// The fourier coefficients are the scalar values that we have to
-// multiply each member of the `orthonormalSet` by in order
-// to recover `vec`
-let fourierCoefficients orthonormalBasis v =
-    let coefForRow row = dotProd (matRow orthonormalBasis row) v
-    Array.init (Array2D.length1 orthonormalBasis) coefForRow
-
-// uses the fourier expansion method to calculate the vector. in theory if
-// orthonormalBasis is really what it claims to be than this function
-// should just return vec (with some precision error)
-let fourierExpand orthonormalBasis vec =
-    let coefs = fourierCoefficients orthonormalBasis vec
-    let expandCol col =
-        let sum = ref 0.0
-        for row = 0 to Array2D.length1 orthonormalBasis - 1 do
-            sum := !sum + coefs.[row] * orthonormalBasis.[row, col]
-        !sum
-    Array.init (Array2D.length2 orthonormalBasis) expandCol
-
-(*
-Note: basis definition from wikipedia
-In linear algebra, a basis is a set of vectors that, in a linear combination,
-can represent every vector in a given vector space or free module, and such
-that no element of the set can be represented as a linear combination of the
-others. In other words, a basis is a linearly independent spanning set.
-*)
-
-// Note: Orthonormal sets are mutually orthogonal and each vector has unit length
-
-let setColumn m col colVector =
-    let nRow = Array2D.length1 m
-    assert (nRow = Array.length colVector)
-    for row = 0 to nRow - 1 do
-        m.[row, col] <- colVector.[row]
-
-(*
-From "Matrix Analysis and Applied Linear Algebra"
-
-Objective: Use B to construct an orthonormal basis O = {u1, u2 , ... , un }
-           for S.
-Strategy: Construct O sequentially so that Ok = {u1 , u2 , ... , uk } is an
-          orthonormal basis for Sk = span {x1 , x2 , ... , xk } for k = 1, ... , n.
-
-in our function B is called `arbitraryBasis`. Use the "modified" versions
-of this function for something that is more stable.
-*)
-let gramSchmidtOrth m =
-    let nRow = Array2D.length1 m
-    let nCol = Array2D.length2 m
-    let m = Array2D.copy m
-    
-    // outer column loop
-    for outerColIndex = 0 to nCol - 1 do
-        let outerCol = matColumn m outerColIndex
-        
-        // inner column loop
-        for innerColIndex = 0 to outerColIndex - 1 do
-            let innerCol = matColumn m innerColIndex
-            let currDotProd = dotProd outerCol innerCol
-            for row = 0 to nRow - 1 do
-                outerCol.[row] <- outerCol.[row] - (innerCol.[row] * currDotProd)
-        setColumn m outerColIndex (normalizeVector outerCol)
-    m
-
-// This is one way to QR factorize with gram schmidt othroganalization
-let qrFactorizeWithGramSchmidt m =
-    let q = gramSchmidtOrth m
-    
-    // R can also be calculated at the same time
-    // as the GS orthoganalization. See wikipedia
-    let r = matMult (transpose q) m
-    
-    (q, r)
-
-let columnVector (v : 'a []) = Array2D.init (Array.length v) 1 (fun row _ -> v.[row])
+////////////////////////////////////////////////////////////////////////////////
+// Guassian Elimination Etc.
+////////////////////////////////////////////////////////////////////////////////
 
 // solve a matrix that is zeroed out below the diagonal using
 // back substitution
@@ -250,9 +140,6 @@ let backSubstituteLower (lowerTriangleMat : double [,]) (rhsVec : double []) =
         solution.[i] <- (rhsVec.[i] - !sum) / lowerTriangleMat.[i, i]
     solution
 
-// determine if the given matrix is square
-let isSquare m = Array2D.length1 m = Array2D.length2 m
-
 /// <summary>
 /// use guassian elimination to calculate LU decomposition for the given matrix
 /// equation. This algorithm uses pivoting to improve accuracy so the new index
@@ -271,7 +158,7 @@ let gaussianElimination coefMat rhsVec =
 
     // do some sanity checking
     if size = 0 then failwith "coefMat cannot be empty"
-    if not (isSquare coefMat) then
+    if not (U.isSquareMat coefMat) then
         invalidArg "coefMat" "the coefficient matrix must be a square matrix"
     if Array.length rhsVec <> size then
         let errorMsg =
@@ -293,7 +180,7 @@ let gaussianElimination coefMat rhsVec =
             if currAbsVal > !maxAbsCoef then
                 maxAbsCoef := currAbsVal
                 maxIndex := j
-        if isNearZero !maxAbsCoef then
+        if MC.isNearZero !maxAbsCoef then
             let errorMsg =
                 sprintf
                     "the matrix is singular: could not find a non-zero \
@@ -313,7 +200,7 @@ let gaussianElimination coefMat rhsVec =
             let orderedRow = rowOrdering.[row]
             let currCoef = coefMat.[orderedRow, diagIndex]
             let zeroFactor = currCoef / diagCoef
-            if not (isNearZero zeroFactor) then
+            if not (MC.isNearZero zeroFactor) then
                 for col = diagIndex + 1 to size - 1 do
                     coefMat.[orderedRow, col] <-
                         coefMat.[orderedRow, col] -
@@ -322,7 +209,7 @@ let gaussianElimination coefMat rhsVec =
                     rhsVec.[orderedRow] - (zeroFactor * rhsVec.[rowOrdering.[diagIndex]])
             coefMat.[orderedRow, diagIndex] <- zeroFactor
     
-    (reorderMatrixRows coefMat rowOrdering, reorderArray rhsVec rowOrdering, rowOrdering)
+    (U.reorderMatrixRows coefMat rowOrdering, U.reorderArray rhsVec rowOrdering, rowOrdering)
 
 // Solve the linear equations using gaussian elimination and back
 // substitution
@@ -345,16 +232,59 @@ let solveManyWithGaussAndBackSub coefMat rhsVecs =
         let (luMat, newRhsVec, rowOrdering) = gaussianElimination coefMat rhsVecHead
 
         // now we can use a shortcut so solve the rest of the RHS's
-        let solveSubsequentRhs rhsVec = resolveMatrix luMat (reorderArray rhsVec rowOrdering)
+        let solveSubsequentRhs rhsVec = resolveMatrix luMat (U.reorderArray rhsVec rowOrdering)
 
         backSubstituteUpper luMat newRhsVec :: List.map solveSubsequentRhs rhsVecTail
+
+////////////////////////////////////////////////////////////////////////////////
+// Solving For Least Squares
+////////////////////////////////////////////////////////////////////////////////
+
+// Note: Orthonormal sets are mutually orthogonal and each vector has unit length
+
+(*
+From "Matrix Analysis and Applied Linear Algebra"
+
+Objective: Use B to construct an orthonormal basis O = {u1, u2 , ... , un }
+           for S.
+Strategy: Construct O sequentially so that Ok = {u1 , u2 , ... , uk } is an
+          orthonormal basis for Sk = span {x1 , x2 , ... , xk } for k = 1, ... , n.
+
+in our function B is called `arbitraryBasis`. Use the "modified" versions
+of this function for something that is more stable.
+*)
+let gramSchmidtOrth m =
+    let nRow = Array2D.length1 m
+    let nCol = Array2D.length2 m
+    let m = Array2D.copy m
+    
+    // outer column loop
+    for outerColIndex = 0 to nCol - 1 do
+        let outerCol = U.matColumn m outerColIndex
+        
+        // inner column loop
+        for innerColIndex = 0 to outerColIndex - 1 do
+            let innerCol = U.matColumn m innerColIndex
+            let currDotProd = dotProd outerCol innerCol
+            for row = 0 to nRow - 1 do
+                outerCol.[row] <- outerCol.[row] - (innerCol.[row] * currDotProd)
+        U.setMatrixColumn m outerColIndex (normalizeVector outerCol)
+    m
+
+// This is one way to QR factorize with gram schmidt othroganalization
+let qrFactorizeWithGramSchmidt m =
+    let q = gramSchmidtOrth m
+    
+    // R can also be calculated at the same time
+    // as the GS orthoganalization. See wikipedia
+    let r = matMult (U.transpose q) m
+    
+    (q, r)
 
 // See page 314 of "Matrix Analysis and Applied Linear Algebra"
 let solveLeastSquares a b =
     let (q, r) = qrFactorizeWithGramSchmidt a
     // R x = trans(Q) b
-    // two of the transposes are just for switching to/from single
-    // column matrices/vectors
-    let rightSide = matColumn (matMult (transpose q) (columnVector b)) 0
+    let rightSide = U.matColumn (matMult (U.transpose q) (U.columnVector b)) 0
     backSubstituteUpper r rightSide
 
