@@ -141,42 +141,33 @@ let backSubstituteLower (lowerTriangleMat : double [,]) (rhsVec : double []) =
     solution
 
 /// <summary>
-/// use guassian elimination to calculate LU decomposition for the given matrix
-/// equation. This algorithm uses pivoting to improve accuracy so the new index
-/// ordering is also returned.
+/// Use guassian elimination with pivoting to calculate LU decomposition for the
+/// given matrix. Since pivoting changes row ordering the reordered indices are
+/// also returned.
 /// </summary>
-/// <param name="coefMat">the coefficient matrix</param>
-/// <param name="rhsVec">the right hand side vector</param>
+/// <param name="m">the coefficient matrix (must be square)</param>
 /// <returns>
-/// A tuple containing:
-/// (LU matrix, the new right-hand-side, the index reordering that was done)
+/// A tuple containing: (luMatrix, rowOrder). The upper triangle of luMatrix
+/// (including diagonal) contains U while the lower triangle of luMatrix
+/// contains L
 /// </returns>
-let gaussianElimination coefMat rhsVec =
-    let coefMat = Array2D.copy coefMat
-    let rhsVec = Array.copy rhsVec
-    let size = Array2D.length1 coefMat
+let luDecompose matrix =
+    let matrix = Array2D.copy matrix
+    let size = Array2D.length1 matrix
 
     // do some sanity checking
-    if size = 0 then failwith "coefMat cannot be empty"
-    if not (U.isSquareMat coefMat) then
-        invalidArg "coefMat" "the coefficient matrix must be a square matrix"
-    if Array.length rhsVec <> size then
-        let errorMsg =
-            sprintf
-                "There are %i rows in coefMat and %i elements in rhsVec. These \
-                 values should be the same."
-                size
-                (Array.length rhsVec)
-        failwith errorMsg
+    if size = 0 then failwith "matrix cannot be empty"
+    if not (U.isSquareMat matrix) then
+        invalidArg "matrix" "the coefficient matrix must be a square matrix"
 
-    let rowOrdering = [|0 .. size - 1|]
+    let rowOrder = [|0 .. size - 1|]
     for diagIndex = 0 to size - 2 do
         // perform "partial pivoting" which bubbles the max absolute coefficient
         // to the top (improves algorithm's accuracy)
         let maxIndex = ref diagIndex
-        let maxAbsCoef = ref (abs coefMat.[rowOrdering.[diagIndex], diagIndex])
+        let maxAbsCoef = ref (abs matrix.[rowOrder.[diagIndex], diagIndex])
         for j = diagIndex + 1 to size - 1 do
-            let currAbsVal = abs coefMat.[rowOrdering.[j], diagIndex]
+            let currAbsVal = abs matrix.[rowOrder.[j], diagIndex]
             if currAbsVal > !maxAbsCoef then
                 maxAbsCoef := currAbsVal
                 maxIndex := j
@@ -185,39 +176,31 @@ let gaussianElimination coefMat rhsVec =
                 sprintf
                     "the matrix is singular: could not find a non-zero \
                      coefficient under the diagonal at position %i"
-                    rowOrdering.[diagIndex]
+                    rowOrder.[diagIndex]
             failwith errorMsg
 
         // now swap the max row with the current
         if !maxIndex <> diagIndex then
-            let tmp = rowOrdering.[diagIndex]
-            rowOrdering.[diagIndex] <- rowOrdering.[!maxIndex]
-            rowOrdering.[!maxIndex] <- tmp
+            let tmp = rowOrder.[diagIndex]
+            rowOrder.[diagIndex] <- rowOrder.[!maxIndex]
+            rowOrder.[!maxIndex] <- tmp
 
         // now "zero out" the coefficients below the diagonal
-        let diagCoef = coefMat.[rowOrdering.[diagIndex], diagIndex]
+        let diagCoef = matrix.[rowOrder.[diagIndex], diagIndex]
         for row = diagIndex + 1 to size - 1 do
-            let orderedRow = rowOrdering.[row]
-            let currCoef = coefMat.[orderedRow, diagIndex]
+            let orderedRow = rowOrder.[row]
+            let currCoef = matrix.[orderedRow, diagIndex]
             let zeroFactor = currCoef / diagCoef
             if not (MC.isNearZero zeroFactor) then
                 for col = diagIndex + 1 to size - 1 do
-                    coefMat.[orderedRow, col] <-
-                        coefMat.[orderedRow, col] -
-                        (zeroFactor * coefMat.[rowOrdering.[diagIndex], col])
-                rhsVec.[orderedRow] <-
-                    rhsVec.[orderedRow] - (zeroFactor * rhsVec.[rowOrdering.[diagIndex]])
-            coefMat.[orderedRow, diagIndex] <- zeroFactor
+                    matrix.[orderedRow, col] <-
+                        matrix.[orderedRow, col] -
+                        (zeroFactor * matrix.[rowOrder.[diagIndex], col])
+            matrix.[orderedRow, diagIndex] <- zeroFactor
     
-    (U.reorderMatrixRows coefMat rowOrdering, U.reorderArray rhsVec rowOrdering, rowOrdering)
+    (U.reorderMatrixRows matrix rowOrder, rowOrder)
 
-// Solve the linear equations using gaussian elimination and back
-// substitution
-let solveWithGaussAndBackSub coefMat rhsVec =
-    let (luMatrix, gaussElimRHSVec, _) = gaussianElimination coefMat rhsVec
-    backSubstituteUpper luMatrix gaussElimRHSVec
-
-let resolveMatrix (luMatrix : double [,]) (rhsVec : double []) =
+let solveLU (luMatrix : double [,]) (rhsVec : double []) =
     let size = Array.length rhsVec
     for col = 0 to size - 2 do
         for row = col + 1 to size - 1 do
@@ -225,16 +208,13 @@ let resolveMatrix (luMatrix : double [,]) (rhsVec : double []) =
     backSubstituteUpper luMatrix rhsVec
 
 let solveManyWithGaussAndBackSub coefMat rhsVecs =
-    match rhsVecs with
-    | [] -> []
-    | (rhsVecHead :: rhsVecTail) ->
-        // we must 1st use gaussian elimination to solve the initial right hand side
-        let (luMat, newRhsVec, rowOrdering) = gaussianElimination coefMat rhsVecHead
+    let (luMatrix, rowOrder) = luDecompose coefMat
+    List.map (fun rhs -> U.reorderArray rhs rowOrder |> solveLU luMatrix) rhsVecs
 
-        // now we can use a shortcut so solve the rest of the RHS's
-        let solveSubsequentRhs rhsVec = resolveMatrix luMat (U.reorderArray rhsVec rowOrdering)
-
-        backSubstituteUpper luMat newRhsVec :: List.map solveSubsequentRhs rhsVecTail
+// Solve the linear equations using gaussian elimination and back
+// substitution
+let inline solveWithGaussAndBackSub coefMat rhsVec =
+    solveManyWithGaussAndBackSub coefMat [rhsVec] |> List.head
 
 ////////////////////////////////////////////////////////////////////////////////
 // Solving For Least Squares
