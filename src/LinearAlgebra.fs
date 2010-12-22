@@ -248,8 +248,8 @@ Objective: Use B to construct an orthonormal basis O = {u1, u2 , ... , un }
 Strategy: Construct O sequentially so that Ok = {u1 , u2 , ... , uk } is an
           orthonormal basis for Sk = span {x1 , x2 , ... , xk } for k = 1, ... , n.
 
-in our function B is called `arbitraryBasis`. Use the "modified" versions
-of this function for something that is more stable.
+in our function B is called `arbitraryBasis`. Uses the "modified" version
+of Gram Schmidt for results that are more stable.
 *)
 let gramSchmidtOrth m =
     let nRow = Array2D.length1 m
