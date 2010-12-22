@@ -2,7 +2,8 @@ module MathCore
 
 // determines if the given number is near 0
 let nearZero = 1e-8
-let isNearZero x = x < nearZero && x > -(nearZero)
+let inline isNearZero x = x < nearZero && x > -(nearZero)
+let inline isNear num x = isNearZero (x - num)
 
 let mean vec = Array.sum vec / double (Array.length vec)
 

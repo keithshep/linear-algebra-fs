@@ -73,6 +73,8 @@ let standardize vec =
     let vecStdDev = MC.stdDev vec
     [| for x in vec -> (x - mu) / vecStdDev |]
 
+/// The dot product is the inner product for euclidean spaces. Notations include
+/// <x,y> <x|y> and x . y
 let dotProd vec1 vec2 =
     let elemCount = Array.length vec1
     assert (elemCount = Array.length vec2)
@@ -106,7 +108,23 @@ let vecCosine v1 v2 = dotProd v1 v2 / (vecNorm v1 * vecNorm v2)
 let coefOfCorr = vecCosine
 
 // two vectors are orthogonal if thier dot product is zero
-let orthogonal v1 v2 = MC.isNearZero (dotProd v1 v2)
+let inline orthogonal v1 v2 = MC.isNearZero (dotProd v1 v2)
+
+let isOrthonormal m =
+    let nCol = Array2D.length2 m
+    U.all <| seq {
+        for i = 0 to nCol do
+            // all column norms should be 1
+            let innerCol = U.matColumn m i
+            yield (MC.isNear 1.0 (vecNorm innerCol))
+
+            // all column pairs should be orthogonal
+            for j = i + 1 to nCol do
+                let outerCol = U.matColumn m j
+                yield (orthogonal innerCol outerCol)
+    }
+
+let inline isOrthonormalBasis m = U.isSquareMat m && isOrthonormal m
 
 ////////////////////////////////////////////////////////////////////////////////
 // Guassian Elimination Etc.
