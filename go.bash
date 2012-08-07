@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# example of compiling with OpenGL:
-# fsc -I ../third-party/taoframework-2.1.0/bin -r Tao.OpenGl.dll -r Tao.FreeGlut.dll "$@"
+# exit on error and don't allow the use of unset variables
+set -o errexit
+set -o nounset
+set -x
 
-fsc src/Utilities.fs src/MathCore.fs src/LinearAlgebra.fs src/LATest.fs
+fsc --nologo --out:LATest.exe src/Utilities.fs src/MathCore.fs src/LinearAlgebra.fs src/LATest.fs
+mono LATest.exe
+

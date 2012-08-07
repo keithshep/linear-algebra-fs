@@ -39,6 +39,6 @@ let inline matRow m row = Array.init (Array2D.length2 m) (fun col -> m.[row, col
 // extract the given column number
 let inline matColumn m col = Array.init (Array2D.length1 m) (fun row -> m.[row, col])
 
-let inline all xs = not <| Seq.exists not xs
+let inline all xs = not (Seq.exists not xs)
 let inline any xs = Seq.exists id xs
 

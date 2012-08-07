@@ -24,10 +24,10 @@ let fourierCoefficients orthonormalBasis v =
 let fourierExpand orthonormalBasis vec =
     let coefs = fourierCoefficients orthonormalBasis vec
     let expandCol col =
-        let sum = ref 0.0
+        let mutable sum = 0.0
         for row = 0 to Array2D.length1 orthonormalBasis - 1 do
-            sum := !sum + coefs.[row] * orthonormalBasis.[row, col]
-        !sum
+            sum <- sum + coefs.[row] * orthonormalBasis.[row, col]
+        sum
     Array.init (Array2D.length2 orthonormalBasis) expandCol
 
 let testMat1 =
