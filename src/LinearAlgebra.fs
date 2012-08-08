@@ -190,12 +190,10 @@ let luDecompose matrix =
                 maxAbsCoef := currAbsVal
                 maxIndex := j
         if MC.isNearZero !maxAbsCoef then
-            let errorMsg =
-                sprintf
-                    "the matrix is singular: could not find a non-zero \
-                     coefficient under the diagonal at position %i"
-                    rowOrder.[diagIndex]
-            failwith errorMsg
+            failwithf
+                "the matrix is singular: could not find a non-zero \
+                 coefficient under the diagonal at position %i"
+                rowOrder.[diagIndex]
 
         // now swap the max row with the current
         if !maxIndex <> diagIndex then
@@ -285,4 +283,8 @@ let solveLeastSquares a b =
     // R x = trans(Q) b
     let rightSide = U.matColumn (matMult (U.transpose q) (U.columnVector b)) 0
     backSubstituteUpper r rightSide
+
+// Weighted least squares as described on page 389 of
+// "Data Analysis Using Regression and Multilevel/Hierarchical Models" - Gelman & Hill
+//let solveWeightedLeastSquares =
 
